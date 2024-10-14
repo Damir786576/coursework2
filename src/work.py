@@ -1,47 +1,107 @@
-import requests  # Для выполнения HTTP-запросов
-import json  # Для работы с JSON
+import requests
+import json
 from abc import ABC, abstractmethod
+from src.api import base_url
 
 
-# Абстрактный класс, задающий интерфейс для работы с API вакансий
-class JobAPI(ABC):
+class Job:
+    def __init__(self, title, url, pay, desc, firm):
+        self.title = title
+        self.url = url
+        self.pay = pay
+        self.desc = desc
+        self.firm = firm
+
+    def __str__(self):
+        pay_str = self.pay if self.pay else "Not specified"
+        return f"{self.title} at {self.firm}\nPay: {pay_str}\nDesc: {self.desc}\nURL: {self.url}"
+
+    def __lt__(self, other):
+        return self.comp_pay() < other.comp_pay()
+
+    def comp_pay(self):
+        if not self.pay:
+            return 0
+        if isinstance(self.pay, (int, float)):
+            return self.pay
+        return sum(self.pay) / 2  # Use average for range
+
+
+class API(ABC):
     @abstractmethod
-    def get_vacancies(self):
+    def get_jobs(self, query, area=1, limit=20):
         pass
 
     @abstractmethod
-    def save_to_file(self, filename):
-        pass
-
-    @abstractmethod
-    def load_from_file(self, filename):
+    def save_json(self, filename):
         pass
 
 
-# Класс для работы с API hh.ru
-class HHJobAPI(JobAPI):
+def parse_pay(pay_data):
+    if not pay_data:
+        return 0
+    from_pay = pay_data.get('from')
+    to_pay = pay_data.get('to')
+    return (from_pay, to_pay) if from_pay and to_pay else from_pay or to_pay or 0
+
+
+class HHAPI(API):
     def __init__(self):
-        self.base_url = "https://api.hh.ru/vacancies"
-        self.vacancies = []
+        self.jobs = []
 
-    def get_vacancies(self, search_text, area=1, per_page=20):
-        params = {"text": search_text, "area": area, "per_page": per_page}
-        response = requests.get(self.base_url, params=params)
-        if response.status_code == 200:
-            self.vacancies = response.json().get('items', [])
+    def get_jobs(self, query, area=1, limit=20):
+        params = {"text": query, "area": area, "per_page": limit}
+        resp = requests.get(base_url, params=params)
+        if resp.status_code == 200:
+            data = resp.json().get('items', [])
+            self.jobs = [self.parse_job(item) for item in data]
         else:
-            print("Error fetching data from hh.ru")
+            print(f"Error fetching data: Status code {resp.status_code}")
+        return self.jobs
 
-    def save_to_file(self, filename):
+    @staticmethod
+    def parse_job(item):
+        title = item.get('name')
+        url = item.get('alternate_url')
+        pay = parse_pay(item.get('salary'))
+        desc = item.get('snippet', {}).get('requirement', 'No description')
+        firm = item.get('employer', {}).get('name', 'Unknown')
+        return Job(title, url, pay, desc, firm)
+
+    def save_json(self, filename):
+        job_data = [
+            {
+                "title": j.title,
+                "firm": j.firm,
+                "pay": j.pay,
+                "desc": j.desc,
+                "url": j.url
+            } for j in self.jobs
+        ]
+
         with open(filename, 'w', encoding='utf-8') as file:
-            json.dump(self.vacancies, file, ensure_ascii=False, indent=4)
+            json.dump(job_data, file, ensure_ascii=False, indent=4)
+        print(f"Jobs saved to {filename}")
 
-    def load_from_file(self, filename):
-        with open(filename, 'r', encoding='utf-8') as file:
-            self.vacancies = json.load(file)
+    def sort_jobs(self):
+        self.jobs.sort(reverse=True)
 
 
-# Пример использования
-hh_api = HHJobAPI()
-hh_api.get_vacancies("уборщик")
-hh_api.save_to_file("vacancies.json")
+if __name__ == '__main__':
+    # Initialize the API with the base URL
+    api = HHAPI()
+
+    # Fetch jobs for Python Developers
+    print("Fetching jobs for Python Developers...")
+    jobs = api.get_jobs("Python Developer", area=1, limit=50)
+
+    print(f"Found {len(jobs)} jobs")
+
+    # Sort jobs by pay (highest to lowest)
+    print("Sorting jobs by pay...")
+    api.sort_jobs()
+
+    # Save all jobs to a JSON file
+    out_file = "../data/vacancies.json"
+    print(f"Saving all jobs to {out_file}...")
+    api.save_json(out_file)
