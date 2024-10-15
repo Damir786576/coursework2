@@ -1,7 +1,7 @@
 from src.work import HHAPI
 
 
-def interact_with_user():
+def main():
     api = HHAPI()
 
     while True:
@@ -38,4 +38,4 @@ def interact_with_user():
 
 
 if __name__ == "__main__":
-    interact_with_user()
+    main()
