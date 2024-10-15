@@ -13,8 +13,8 @@ class Job:
         self.firm = firm
 
     def __str__(self):
-        pay_str = self.pay if self.pay else "Not specified"
-        return f"{self.title} at {self.firm}\nPay: {pay_str}\nDesc: {self.desc}\nURL: {self.url}"
+        pay_str = self.pay if self.pay else "Не указано"
+        return f"{self.title} в {self.firm}\nЗарплата {pay_str}\nОписание {self.desc}\nURL: {self.url}"
 
     def __lt__(self, other):
         return self.comp_pay() < other.comp_pay()
@@ -56,7 +56,7 @@ class HHAPI(API):
             data = resp.json().get('items', [])
             self.jobs = [self.parse_job(item) for item in data]
         else:
-            print(f"Error fetching data: Status code {resp.status_code}")
+            print(f"Ошибка при получении данных: Status code {resp.status_code}")
         return self.jobs
 
     @staticmethod
@@ -71,10 +71,10 @@ class HHAPI(API):
     def save_json(self, filename):
         job_data = [
             {
-                "title": j.title,
-                "firm": j.firm,
-                "pay": j.pay,
-                "desc": j.desc,
+                "Название": j.title,
+                "Фирма": j.firm,
+                "Зарплата": j.pay,
+                "Описание": j.desc,
                 "url": j.url
             } for j in self.jobs
         ]
@@ -85,23 +85,3 @@ class HHAPI(API):
 
     def sort_jobs(self):
         self.jobs.sort(reverse=True)
-
-
-if __name__ == '__main__':
-    # Initialize the API with the base URL
-    api = HHAPI()
-
-    # Fetch jobs for Python Developers
-    print("Fetching jobs for Python Developers...")
-    jobs = api.get_jobs("Python Developer", area=1, limit=50)
-
-    print(f"Found {len(jobs)} jobs")
-
-    # Sort jobs by pay (highest to lowest)
-    print("Sorting jobs by pay...")
-    api.sort_jobs()
-
-    # Save all jobs to a JSON file
-    out_file = "../data/vacancies.json"
-    print(f"Saving all jobs to {out_file}...")
-    api.save_json(out_file)
