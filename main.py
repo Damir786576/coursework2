@@ -33,7 +33,7 @@ def main():
             print(f'{job}\n')
 
         # Step 4: Save all jobs to JSON file
-        filename = "../data/vacancies.json"
+        filename = "data/vacancies.json"
         api.save_json(filename)
 
 
